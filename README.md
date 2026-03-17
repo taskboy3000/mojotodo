@@ -243,7 +243,7 @@ User=mojotodo
 Group=mojotodo
 WorkingDirectory=/opt/mojotodo
 Environment="MOJOTODO_DSN=dbi:SQLite:dbname=/var/lib/mojotodo/app.db"
-Environment="MOJOTODO_CODE_PEPPER=change-this-to-secure-random-string"
+EnvironmentFile=-/etc/mojotodo.env
 ExecStart=/usr/local/bin/hypnotoad /opt/mojotodo/lib/mojotodo.pm
 ExecStop=/usr/local/bin/hypnotoad -s /opt/mojotodo/lib/mojotodo.pm
 Restart=on-failure
@@ -257,6 +257,8 @@ ReadWritePaths=/var/lib/mojotodo /var/log/mojotodo
 [Install]
 WantedBy=multi-user.target
 ```
+
+**Note:** The `-` before `/etc/mojotodo.env` prevents startup failure if the file is missing.
 
 **Installation:**
 

@@ -411,7 +411,7 @@ sub startup ($self) {
                 }
             }
 
-            $self->log->info("Auth SMS code for $email (phone ending in " . substr($phone, -4) . ") is $code");
+            $self->log->info("Auth SMS code sent for $email (phone ending in " . substr($phone, -4) . ")");
 
             my %resp = ( status => 'code_sent' );
             if ($self->mode eq 'development' && ($auth->{dev_return_code} // 0)) {
@@ -480,7 +480,7 @@ sub startup ($self) {
             $self->log->info("Mailer is not enabled");
         }
 
-        $self->log->info("Auth code for $email is $code (challenge=" . $challenge->id . ', salt=' . $salt . ', pepper=' . $pepper . ' )');
+        $self->log->info("Auth code for $email (challenge=" . $challenge->id . ')');
 
         my %resp = ( status => 'code_sent' );
         if ($self->mode eq 'development' && ($auth->{dev_return_code} // 0)) {
@@ -544,8 +544,7 @@ sub startup ($self) {
         return _json_error($c, 401, 'Invalid code') if ($challenge->attempt_count // 0) >= $max_attempts;
 
         my $candidate = _code_hash($challenge->code_salt, $code, $pepper);
-        $self->log->info("Verify: email=$email, code=$code, salt=" . $challenge->code_salt . ", pepper=$pepper");
-        $self->log->info("Verify: stored_hash=" . $challenge->code_hash . ", candidate_hash=$candidate");
+        $self->log->info("Verify: email=$email, code=$code, salt=" . $challenge->code_salt);
         if (!secure_compare($candidate, $challenge->code_hash)) {
             my $attempts = ($challenge->attempt_count // 0) + 1;
             $challenge->attempt_count($attempts);
@@ -719,7 +718,7 @@ sub startup ($self) {
             }
         }
 
-        $self->log->info("Phone verification code for user $user_id is $code");
+        $self->log->info("Phone verification code sent for user $user_id");
 
         return $c->render(status => 202, json => { status => 'code_sent' });
     });

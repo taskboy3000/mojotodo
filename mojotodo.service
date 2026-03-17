@@ -10,9 +10,7 @@ WorkingDirectory=/opt/mojotodo
 
 # Environment variables for production
 Environment="MOJOTODO_DSN=dbi:SQLite:dbname=/var/lib/mojotodo/app.db"
-Environment="MOJOTODO_MAIL_PASS=your-maileroo-api-key"
-Environment="MOJOTODO_CODE_PEPER=change-this-to-secure-random-string"
-Environment="MOJOTODO_FAKE_AUTH=0"
+EnvironmentFile=-/etc/mojotodo.env
 
 # Hypnotoad configuration
 ExecStart=/usr/local/bin/hypnotoad /opt/mojotodo/lib/mojotodo.pm
