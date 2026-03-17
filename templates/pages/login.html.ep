@@ -1,0 +1,125 @@
+% layout 'main';
+% title 'Login - MojoTodo';
+
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <% if (param 'deleted') { %>
+        <div class="alert alert-success alert-dismissible fade show">
+            Your account has been deleted.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <% } %>
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-person-circle"></i> Login</h4>
+            </div>
+            <div class="card-body">
+                <div id="step-email">
+                    <p class="text-muted">Enter your email to receive a verification code.</p>
+                    <form id="email-form">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Send code via</label>
+                            <select class="form-select" id="code-type">
+                                <option value="email">Email</option>
+                                <option value="sms">SMS (text message)</option>
+                            </select>
+                            <div class="form-text">SMS requires a verified phone number on your account</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100" id="email-btn">
+                            Send Code
+                        </button>
+                    </form>
+                </div>
+
+                <div id="step-code" style="display: none;">
+                    <p class="text-muted" id="code-instructions">Enter the 6-digit code sent to your email.</p>
+                    <form id="code-form">
+                        <div class="mb-3">
+                            <label for="code" class="form-label">Verification Code</label>
+                            <input type="text" class="form-control" id="code" maxlength="6" pattern="[0-9]{6}" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100" id="code-btn">
+                            Verify Code
+                        </button>
+                        <button type="button" class="btn btn-link w-100" id="resend-btn">
+                            Resend Code
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let userEmail = '';
+let userCodeType = 'email';
+
+document.getElementById('email-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value;
+    const codeType = document.getElementById('code-type').value;
+    const btn = document.getElementById('email-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        const result = await apiRequest('POST', '/auth/request-code', { email, code_type: codeType });
+        userEmail = email;
+        userCodeType = codeType;
+        document.getElementById('step-email').style.display = 'none';
+        document.getElementById('step-code').style.display = 'block';
+        
+        if (codeType === 'sms') {
+            document.getElementById('code-instructions').textContent = 'Enter the 6-digit code sent to your phone.';
+        } else {
+            document.getElementById('code-instructions').textContent = 'Enter the 6-digit code sent to your email.';
+        }
+        
+        document.getElementById('code').focus();
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Code';
+    }
+});
+
+document.getElementById('code-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = document.getElementById('code').value;
+    const btn = document.getElementById('code-btn');
+    btn.disabled = true;
+    btn.textContent = 'Verifying...';
+
+    try {
+        const result = await apiRequest('POST', '/auth/verify-code', { email: userEmail, code, code_type: userCodeType });
+        window.location.href = '/lists';
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Verify Code';
+    }
+});
+
+document.getElementById('resend-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('resend-btn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        await apiRequest('POST', '/auth/request-code', { email: userEmail, code_type: userCodeType });
+        showSuccess('Code resent!');
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Resend Code';
+    }
+});
+</script>

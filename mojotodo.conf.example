@@ -13,4 +13,14 @@
         dev_return_code      => 1,
         code_pepper          => 'change-me-in-production',
     },
+    mail => {
+        enabled      => 1,
+        host         => 'smtp.gmail.com',
+        port         => 587,
+        user         => 'joe.johnston@gmail.com',
+        pass         => '',
+        from         => 'joe.johnston@gmail.com',
+        use_tls      => 1,
+        sms_gateway  => 'txt.att.net',
+    },
 }

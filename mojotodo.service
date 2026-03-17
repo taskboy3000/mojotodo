@@ -1,0 +1,31 @@
+[Unit]
+Description=MojoTodo - Lightweight Todo List Application
+After=network.target
+
+[Service]
+Type=forking
+User=mojotodo
+Group=mojotodo
+WorkingDirectory=/opt/mojotodo
+
+# Environment variables for production
+Environment="MOJOTODO_DSN=dbi:SQLite:dbname=/var/lib/mojotodo/app.db"
+Environment="MOJOTODO_MAIL_PASS=your-maileroo-api-key"
+Environment="MOJOTODO_CODE_PEPER=change-this-to-secure-random-string"
+Environment="MOJOTODO_FAKE_AUTH=0"
+
+# Hypnotoad configuration
+ExecStart=/usr/local/bin/hypnotoad /opt/mojotodo/lib/mojotodo.pm
+ExecStop=/usr/local/bin/hypnotoad -s /opt/mojotodo/lib/mojotodo.pm
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/mojotodo /var/log/mojotodo
+
+[Install]
+WantedBy=multi-user.target

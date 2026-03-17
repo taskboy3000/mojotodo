@@ -1,0 +1,83 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use File::Spec;
+use Getopt::Long qw(GetOptions);
+
+use lib 'lib';
+use Durance::Schema;
+use mojotodo::DB;
+
+our $VERSION = '0.01';
+
+sub main {
+    my $dsn = $ENV{MOJOTODO_DSN} // $ENV{MOJOTODO_DBNAME};
+    if ($dsn && $dsn =~ /^dbi:(\w+):/i) {
+        $mojotodo::DB::gDSN = $dsn;
+    } else {
+        $mojotodo::DB::gDSN = "dbi:SQLite:dbname=$dsn" if $dsn;
+    }
+
+    my $help = 0;
+    my $dry_run = 0;
+    my $list_only = 0;
+
+    GetOptions(
+        'help|h'       => \$help,
+        'dry-run|n'    => \$dry_run,
+        'list-only|l'  => \$list_only,
+    ) or usage();
+
+    usage() if $help;
+
+    my $schema = Durance::Schema->new(dbh => mojotodo::DB->new->dbh);
+
+    my @models = qw(
+        mojotodo::Model::User
+        mojotodo::Model::AuthChallenge
+        mojotodo::Model::TodoList
+        mojotodo::Model::Task
+        mojotodo::Model::ListShare
+        mojotodo::Model::TaskAssignment
+    );
+
+    for my $model_name (@models) {
+        eval "require $model_name" or die "Cannot load $model_name: $@";
+        my $model = $model_name->new(db => mojotodo::DB->new);
+
+        if ($list_only) {
+            print "Would sync table for: $model_name\n";
+            next;
+        }
+
+        if ($dry_run) {
+            print "[DRY RUN] Would sync table for: $model_name\n";
+        } else {
+            print "Syncing table for: $model_name\n";
+            $schema->sync_table($model);
+        }
+    }
+
+    print "Migration complete.\n";
+    return 0;
+}
+
+sub usage {
+    print <<"EOF";
+Usage: $0 [options]
+
+Options:
+    -h, --help       Show this help message
+    -n, --dry-run    Show what would be done without making changes
+    -l, --list-only  List models that would be migrated
+
+Environment variables:
+    MOJOTODO_DSN      Database DSN (e.g., dbi:SQLite:dbname=app.db)
+    MOJOTODO_DBNAME   Database name (used if DSN not set)
+
+EOF
+    exit(1);
+}
+
+exit main();

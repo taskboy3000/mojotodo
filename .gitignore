@@ -1,1 +1,5 @@
-t/test.db
+*.db
+.vscode
+*~
+mojotodo.conf
+startDebugServer.sh

@@ -149,59 +149,64 @@ Release gate tags:
 - [ ] Add `TaskAssignment` uniqueness and indexes:
       unique (`task_id`, `target_list_id`), indexes on `source_list_id`, `target_list_id`,
       `assigned_to_user_id`, and `task_id`.
-- [ ] Define exact in-app `Notification` schema fields:
-      `id`, `user_id`, `type`, `title`, `body`, `reference_type`, `reference_id`, `read_epoch`,
-      `created_at`, `updated_at`.
-- [ ] Add `Notification` indexes for inbox queries:
-      (`user_id`, `read_epoch`, `created_at DESC`).
+ - [ ] Define exact in-app `Notification` schema fields:
+       `id`, `user_id`, `type`, `title`, `body`, `reference_type`, `reference_id`, `read_epoch`,
+       `created_at`, `updated_at`.
+       (IMPLEMENTED - mojotodo::Model::Notification created)
+ - [ ] Add `Notification` indexes for inbox queries:
+       (`user_id`, `read_epoch`, `created_at DESC`).
 - [ ] Add optional `TaskComment` model only if collaboration notes are needed for MVP.
 
 ### Phase 4: Schema and Data Lifecycle
-- [ ] Add `script/migrate` command to run `migrate_all('mojotodo::DB')` manually.
-- [ ] Add seed script for local data (`script/seed`) using model `create(...)` APIs.
-- [ ] Add a documented reset flow for dev DB recreation.
+ - [x] Add `script/migrate` command to run `migrate_all('mojotodo::DB')` manually.
+ - [x] Add seed script for local data (`script/seed`) using model `create(...)` APIs.
+ - [ ] Add a documented reset flow for dev DB recreation.
+       (NOT DOCUMENTED - scripts exist but no documented reset procedure)
 
 ### Phase 5: API Endpoints (Mojolicious)
  - [x] Add `/api/auth/request-code` endpoint to request one-time login code by email.
  - [x] Add `/api/auth/verify-code` endpoint to verify code and establish authenticated session.
  - [x] Add `/api/logout` endpoint to end authenticated session.
  - [ ] Add optional `/api/auth/resend-code` endpoint with cooldown controls.
+       (Cooldown logic exists in request-code endpoint; dedicated endpoint not implemented)
  - [x] Add `/api/lists` CRUD endpoints.
- - [ ] Add `/api/lists/:id/tasks` endpoints for task CRUD within a list.
- - [ ] Add `/api/lists/:id/share` endpoint(s) for list collaboration controls.
- - [ ] Add `/api/tasks/:id/assign` endpoint(s) to link tasks into another user's list.
- - [x] Add `/api/lists/:id/tasks?hide_assigned_out=1` filter behavior for source-list UX.
- - [ ] Define `/api/lists/:id/share` contract:
+  - [x] Add `/api/lists/:id/tasks` endpoints for task CRUD within a list.
+  - [x] Add `/api/lists/:id/share` endpoint(s) for list collaboration controls.
+  - [x] Add `/api/tasks/:id/assign` endpoint(s) to link tasks into another user's list.
+  - [x] Add `/api/lists/:id/tasks?hide_assigned_out=1` filter behavior for source-list UX.
+  - [x] Define `/api/lists/:id/share` contract:
        POST `{ email }`, DELETE by share id or email, GET collaborators.
- - [ ] Define `/api/tasks/:id/assign` contract:
+  - [x] Define `/api/tasks/:id/assign` contract:
        POST `{ target_list_id, assigned_to_email }`, DELETE assignment id, GET assignments.
- - [ ] Define source-list projection contract for assigned tasks:
+ - [x] Define source-list projection contract for assigned tasks:
        include `assigned_to_email`, `is_assigned_out`, and `target_list_id` when present.
- - [ ] Add in-app notification endpoints:
+       (IMPLEMENTED - fields added to Task::list_view method)
+ - [x] Add in-app notification endpoints:
        `GET /api/notifications`, `POST /api/notifications/:id/read`,
        `POST /api/notifications/read-all`.
+       (IMPLEMENTED - endpoints added, auto-creates notification on task assignment)
  - [ ] Add authorization checks so users only access owned/shared resources.
+       (PARTIALLY IMPLEMENTED - collaborator access works for some endpoints)
  - [ ] Add API error format conventions for validation and auth failures.
 
 ### Immediate Remediation Tasks (Pre-MVP Exposure)
 
 #### Testability Gaps
-- [ ] Add API integration tests for list CRUD endpoints (create, read, update, delete).
-- [ ] Add API integration tests for task list endpoint with hide_assigned_out.
-- [ ] Add auth + list + task flow integration tests.
-- [ ] Add test isolation: each test should use a fresh in-memory or temp database.
+- [x] Add API integration tests for list CRUD endpoints (create, read, update, delete).
+- [x] Add API integration tests for task list endpoint with hide_assigned_out.
+- [x] Add auth + list + task flow integration tests.
+- [x] Add test isolation: each test should use a fresh in-memory or temp database.
 
 #### Security Gaps
 - [x] Fix collaborator access: list GET endpoints should return lists owned OR shared with current user.
 - [x] Add collaborator-aware authorization to task list endpoint.
-- [ ] Add input sanitization for title/description fields to prevent XSS when rendered.
-- [ ] Add request size limits for JSON payloads at application level.
-- [ ] Add basic rate limiting middleware for state-changing endpoints (lists/tasks).
+- [x] Add input sanitization for title/description fields to prevent XSS when rendered.
+- [x] Add basic rate limiting middleware for state-changing endpoints (lists/tasks).
 
 #### Scalability Gaps
-- [ ] Add pagination to list endpoints (default 20, max 100).
-- [ ] Add default sorting (id DESC) to list endpoints for consistent paging.
-- [ ] Optimize list_view N+1: batch-load assignments in single query rather than per-task loop.
+- [x] Add pagination to list endpoints (default 20, max 100).
+- [x] Add default sorting (id DESC) to list endpoints for consistent paging.
+ - [x] Optimize list_view N+1: batch-load assignments in single query rather than per-task loop.
 
 ### Implementation Hardening
 
@@ -241,16 +246,25 @@ Next pass hardening steps:
       clearer testing seams, and safer future extension.
 
 ### Phase 6: SPA UI (Bootstrap)
-- [ ] Build base SPA shell and passwordless auth views (email entry + code verification).
-- [ ] Build list management UI (create/rename/archive lists).
-- [ ] Build task management UI (create/edit/complete/reorder tasks).
-- [ ] Add due-date visual states (on-time, nearly late, late).
-- [ ] Add sharing UI to grant/revoke access to users.
-- [ ] Ensure responsive layouts for phone-sized and desktop screens.
+ - [x] Build base SPA shell and passwordless auth views (email entry + code verification).
+ - [x] Build list management UI (create/rename/archive lists).
+ - [x] Build task management UI (create/edit/complete/reorder tasks).
+ - [x] Add due-date visual states (on-time, nearly late, late).
+ - [x] Add sharing UI to grant/revoke access to users.
+ - [ ] Ensure responsive layouts for phone-sized and desktop screens.
+       (Uses Bootstrap grid but not fully optimized for phone layouts)
 
 ### Phase 7: Testing (feature-first and regression-safe)
+
+#### Fake Auth Bypass for Testing
+- [x] Add `MOJOTODO_FAKE_AUTH` environment variable check in `/api/auth/verify-code` endpoint
+- [x] When enabled, skip code verification and auto-authenticate any email submitted
+- [x] Add startup warning when `MOJOTODO_FAKE_AUTH=1` to prevent production use
+- [x] Add test verifying fake auth bypass works correctly
+
 - [ ] Add unit tests for each model: CRUD, validations, and relationships.
-- [ ] Add schema tests for `migrate_all`, `sync_table`, and `ensure_schema_valid` behavior.
+       (PARTIALLY IMPLEMENTED: model_task.t, model_todo_list.t, model_list_share.t, model_task_assignment.t exist)
+ - [ ] Add schema tests for `migrate_all`, `sync_table`, and `ensure_schema_valid` behavior.
 - [ ] Add config tests for DSN resolution order: env override > Mojolicious config > default `app.db`.
 - [ ] Add startup tests for DSN validation failure and schema validation failure paths.
 - [ ] Add controller/API tests for auth code request, verify, resend, logout, lists, tasks, and sharing.
@@ -263,20 +277,134 @@ Next pass hardening steps:
 - [ ] Run full suite with `prove -l t/` and keep green after each feature slice.
 
 ### Phase 8: Documentation and Deploy Readiness
-- [ ] Update README with local dev setup (including local Durance usage).
+
+#### Systemd Service
+- [x] Create `mojotodo.service` systemd unit file for hypnotoad
+- [x] Configure service to run as non-root user
+- [x] Include environment file support for secrets
+- [x] Add service restart policies (on-failure, etc.)
+- [x] Update README with local dev setup (including local Durance usage).
+       (IMPLEMENTED - README.md exists)
 - [ ] Document deployment dependency strategy for Durance in `cpanfile`.
 - [ ] Document schema migration strategy for dev vs production.
 - [ ] Document API routes and expected request/response payloads.
 - [ ] Add an initial deployment checklist (env vars, DB path, startup command).
 
+#### Deployment Checklist
+- [ ] Create dedicated system user `mojotodo`
+- [ ] Create directories: `/var/lib/mojotodo`, `/var/log/mojotodo`
+- [ ] Copy application files to `/opt/mojotodo`
+- [ ] Set proper permissions: `chown -R mojotodo:mojotodo /opt/mojotodo /var/lib/mojotodo`
+- [ ] Copy `mojotodo.service` to `/etc/systemd/system/`
+- [ ] Inject secrets via environment file (e.g., `/etc/mojotodo.env` with `MAILEROO_API_KEY=...`)
+- [ ] Run `systemctl daemon-reload`
+- [ ] Run `systemctl enable --now mojotodo`
+- [ ] Verify service is running: `systemctl status mojotodo`
+- [ ] Check logs: `journalctl -u mojotodo -f`
+
+#### Secret Injection for Production
+- [ ] Add support for `.env` file or systemd `EnvironmentFile` for secrets
+- [ ] Document required environment variables: `MAILEROO_API_KEY`, `MOJOTODO_CODE_PEPPER`, `MOJOTODO_DSN`
+- [ ] Create production `.env.example` template with all required variables
+
 ### Phase 9: Security Hardening
 - [x] Store one-time codes as hashes only (never plaintext) and compare using constant-time logic.
 - [ ] Regenerate session identifier at login to reduce session fixation risk.
 - [ ] Decide and enforce CSRF protection strategy for cookie-authenticated state-changing routes.
+  - [ ] Add CSRF token generation and validation middleware
+  - [ ] Add CSRF token to all forms in SPA
+  - [ ] Validate CSRF token on state-changing API endpoints
+  - [ ] Add tests for CSRF protection
 - [ ] Add request size limits for JSON payloads to reduce abuse and accidental memory pressure.
+       (IMPLEMENTED - 64KB limit added via before_dispatch hook)
 - [ ] Add security tests for SQL injection payloads in query parameters and JSON bodies.
 - [ ] Add security tests for stored and reflected XSS in task/list names rendered by the SPA.
-- [ ] Add background cleanup task for expired/used auth challenges to reduce attack surface.
+ - [x] Add background cleanup task for expired/used auth challenges to reduce attack surface.
+       (IMPLEMENTED - script/cleanup removes old auth challenges)
+
+### Production Hardening (Pre-Deployment)
+- [x] Fix broken rate limiting middleware:
+  - [x] Replace per-request stash with persistent storage (package-level hash)
+  - [x] Use proper sliding window or fixed window algorithm
+  - [x] Test rate limiting actually blocks repeated requests
+- [x] Add rate limiting for auth endpoints:
+  - [x] Add rate limit: request-code = 5 per 15 minutes per email+IP
+  - [x] Add rate limit: verify-code = 20 per 15 minutes per email+IP
+  - [x] Add rate limit: phone verification = 5 per 15 minutes per user
+- [x] Add startup guard for dev_return_code:
+  - [x] Check if dev_return_code is enabled in config
+  - [x] If mode is 'production' and dev_return_code is true, die with clear error
+- [x] Add easy user enumeration fix:
+  - [x] Return same error message for "user not found" vs "code expired" during verification
+  - [x] Use constant-time string comparison for codes to prevent timing attacks (already using secure_compare)
+- [x] Add CSRF protection:
+  - [x] Add CSRF token generation and validation middleware (manual implementation)
+  - [x] Add CSRF token to all forms in SPA (exposed via session in layout)
+  - [x] Validate CSRF token on state-changing API endpoints (skipped in development)
+  - [x] Skip CSRF in development mode for easier testing
+
+### Email Delivery
+
+#### Current Implementation (Maileroo)
+- [x] Create `lib/mojotodo/Mailer.pm` with SMTP and Maileroo API support:
+      - `configure($config)` - takes config hash at startup
+      - `send_email($to, $subject, $body)` - sends email (auto-selects Maileroo if API key set)
+      - Falls back to env vars: `MOJOTODO_MAIL_HOST`, `MOJOTODO_MAIL_USER`, `MOJOTODO_MAIL_PASS`, `MOJOTODO_MAIL_FROM`, `MOJOTODO_MAIL_PORT`
+- [x] Add mail config structure to `mojotodo.conf`
+- [x] Add startup logging for configuration
+- [ ] Add HTML email support
+- [ ] Add URL to verification emails: include link back to the app
+
+### Default List Creation
+
+#### Feature: Create default list on first login
+- [x] Add method `create_default_list($user_id)` in `mojotodo::Model::TodoList`:
+      - Creates a list titled "My Tasks" for the given user
+      - Sets `archived` to 0 (default)
+      - Returns the created list object
+- [x] Add `create_default_list` call in `/api/auth/verify-code` endpoint after user creation:
+      - Call in both fake auth path (after user->create) and real auth path (after user->create)
+      - Wrap in transaction to ensure atomic user+list creation
+- [ ] Add `GET /api/lists?default=1` endpoint to retrieve only the user's default list
+- [ ] Add integration test for first-login flow (verify user + default list created)
+- [ ] Add unit test for `create_default_list` method
+
+### Account Deletion
+
+#### Feature: User account deletion
+- [x] Add DELETE `/api/account` endpoint:
+      - Requires authenticated session
+      - Deletes user and all related data in transaction:
+        - Delete AuthChallenge records for user
+        - Handle TaskAssignment records where user is assignee:
+          - If assigned by another user, revert assignment to source list
+          - If source user also deleted, delete the task
+        - Delete ListShare records where user is member or creator
+        - Delete Notification records for user
+        - Delete TodoList records owned by user (cascades to tasks)
+        - Delete User record
+      - Returns 200 on success, clears session
+      - Returns 401 if not authenticated
+- [x] Add `delete_account` method in `mojotodo::Model::User`:
+      - Accepts user_id
+      - Wraps all related deletions in a transaction
+      - Handles task reassignment logic per above
+      - Returns success boolean
+- [x] Add SPA UI for account deletion:
+      - Add "Delete Account" button in navbar dropdown or settings area
+      - Show confirmation modal with warning text
+      - On confirm, call DELETE `/api/account` endpoint
+      - On success, redirect to login page with success message
+- [x] Add integration tests:
+      - Test successful account deletion
+      - Test 401 when not authenticated
+      - Test cascade deletion of related data
+      - Test email can be reused after deletion
+      - Test tasks revert to original assigner when assignee deleted
+      - Test tasks deleted when original assigner also deleted
+
+#### Future Considerations (Post-MVP)
+- Soft delete: Set `is_active = 0` instead of hard delete for reversibility and audit trail
 
 ### Phase 10: Performance and Operational Safety
 - [ ] Add indexes for hot query paths (`user_id`, `todo_list_id`, `due_at`, share lookup columns).
@@ -287,6 +415,89 @@ Next pass hardening steps:
 - [ ] Add query-count assertions for critical endpoints to catch regression in relationship loading.
 - [ ] Add SQLite operational settings guidance (WAL mode, busy timeout) for multi-user write load.
 - [ ] Add startup timing check to ensure schema checks do not cause unacceptable boot latency.
+
+### Phase 12: Application Structure Refactor
+
+#### Refactor to Standard Mojolicious Structure
+- [ ] Create top-level `script/mojotodo` script following Mojolicious convention:
+  ```perl
+  #!/usr/bin/env perl
+  use strict;
+  use warnings;
+  use Mojo::File qw(curfile);
+  use lib curfile->dirname->sibling('lib')->to_string;
+  use Mojolicious::Commands;
+  Mojolicious::Commands->start_app('mojotodo');
+  ```
+- [ ] Move route definitions from `lib/mojotodo.pm` to controller classes
+- [ ] Create `lib/mojotodo/Controller/Auth.pm` for authentication endpoints
+- [ ] Create `lib/mojotodo/Controller/Account.pm` for account management endpoints
+- [ ] Create `lib/mojotodo/Controller/Lists.pm` for list CRUD endpoints
+- [ ] Create `lib/mojotodo/Controller/Tasks.pm` for task CRUD endpoints
+- [ ] Create `lib/mojotodo/Controller/Shares.pm` for sharing endpoints
+- [ ] Create `lib/mojotodo/Controller/Notifications.pm` for notification endpoints
+- [ ] Update `lib/mojotodo.pm` to load controllers and define routes using `$r->controller_class`
+
+### Phase 11: UI Improvements
+
+#### CSS Grid Task List Layout
+- [x] Replace `<ul>/<li>` structure with a `<div class="task-table">` container
+- [x] Define CSS grid with columns: `30px 1fr 80px 120px 40px`
+- [x] Add header row `<div class="task-row task-header">` with column labels
+- [x] Update task rows to use `task-row` class with grid layout
+- [x] Remove inline `width` styles from elements
+- [x] Ensure mobile responsiveness with `min-width` or horizontal scroll if needed
+
+#### Bootstrap Card Task List Layout
+- [x] Replace CSS grid with Bootstrap card layout for mobile-friendly responsive design
+- [x] Each task rendered as a `<div class="card mb-2">`
+- [x] Card structure:
+  - Row 1: Checkbox + Title (strikethrough if done)
+  - Row 2: Due date badge + Status badge + Delete button
+- [x] Remove task-table grid CSS from main.html.ep
+- [x] Use Bootstrap utility classes for spacing and alignment
+- [x] Remove horizontal scroll wrapper
+
+#### Edit Existing Tasks
+- [x] Add edit button to task card (pencil icon)
+- [x] On click, show inline edit mode with:
+  - Text input for title (pre-filled)
+  - Date input for due date (pre-filled)
+  - Save and Cancel buttons
+- [x] On save, call PATCH `/api/lists/:list_id/tasks/:id` endpoint
+- [x] Add edit task to Task model (PATCH endpoint already exists)
+
+#### Rename Lists
+- [x] Add rename option to list (pencil icon next to list name in sidebar)
+- [x] On click, show inline edit with input field pre-filled with current name
+- [x] On save, call PATCH `/api/lists/:id` with new title
+- [x] Update list in UI on success
+
+#### Third-Party Libraries Documentation
+- [ ] Create README.md with section on third-party libraries
+- [ ] Document each library: name, version, license, purpose
+  - SortableJS (MIT) - drag and drop reordering
+  - Bootstrap 5 (MIT) - UI framework
+  - Bootstrap Icons (MIT) - icons
+
+#### Drag and Drop Reordering with SortableJS
+- [x] Add SortableJS CDN to main layout
+- [x] Add `position` column to TodoList model for list order
+- [x] Add `position` column to Task model for task order
+- [x] Add POST `/api/lists/reorder` endpoint to save list order:
+      - Accept `{ list_ids: [3, 1, 2] }` array of ordered IDs
+      - Verify user owns/has access to each list before updating
+      - Use transaction to update positions atomically
+- [x] Add POST `/api/lists/:id/tasks/reorder` endpoint to save task order:
+      - Accept `{ task_ids: [3, 1, 2] }` array of ordered IDs
+      - Verify user has access to list before updating
+      - Use transaction to update positions atomically
+- [x] Initialize SortableJS on lists container in sidebar
+- [x] Initialize SortableJS on tasks container
+- [x] On drag end, call appropriate reorder API
+- [x] Update model queries to order by position (fall back to id if null)
+- [ ] Handle null positions: use created_at DESC, id DESC as fallback for existing data
+- [ ] Consider periodic reindexing for fragmented position values (future enhancement)
 
 ---
 

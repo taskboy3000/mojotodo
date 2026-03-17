@@ -28,4 +28,15 @@ subtest 'TodoList and User relation methods exist' => sub {
     ok(mojotodo::Model::Task->can('todo_list'), 'Task has belongs_to todo_list accessor');
 };
 
+subtest 'TodoList create_default_list' => sub {
+    my $user_id = 999;
+
+    my $list = mojotodo::Model::TodoList->create_default_list($user_id);
+    isa_ok($list, 'mojotodo::Model::TodoList');
+    is($list->owner_user_id, $user_id, 'owner_user_id set');
+    is($list->title, 'My Tasks', 'default title is "My Tasks"');
+    is($list->archived, 0, 'archived is false');
+    ok($list->id, 'id generated');
+};
+
 done_testing;

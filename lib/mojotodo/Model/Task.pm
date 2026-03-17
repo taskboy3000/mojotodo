@@ -13,6 +13,7 @@ column todo_list_id       => ( is => 'rw', isa => 'Int', required => 1 );
 column title              => ( is => 'rw', isa => 'Str', required => 1, length => 255 );
 column description        => ( is => 'rw', isa => 'Text' );
 column status             => ( is => 'rw', isa => 'Str', required => 1, default => 'open', length => 32 );
+column position           => ( is => 'rw', isa => 'Int' );
 column due_at             => ( is => 'rw', isa => 'Timestamp' );
 column completed_at       => ( is => 'rw', isa => 'Timestamp' );
 column created_by_user_id => ( is => 'rw', isa => 'Int', required => 1 );
@@ -33,17 +34,33 @@ sub list_view {
     $opts //= {};
 
     my $hide_assigned_out = $opts->{hide_assigned_out} ? 1 : 0;
-    my @tasks = $class->where({ todo_list_id => $todo_list_id })->order('id ASC')->all;
+    my $limit = $opts->{limit} // 20;
+    my $offset = $opts->{offset} // 0;
+    my $include_count = $opts->{include_count};
+
+    my @tasks = $class->where({ todo_list_id => $todo_list_id })
+        ->order('position ASC, id DESC')
+        ->limit($limit)
+        ->offset($offset)
+        ->all;
 
     require mojotodo::Model::TaskAssignment;
     require mojotodo::Model::User;
 
-    my @rows;
-    for my $task (@tasks) {
+    my @all_tasks = $class->where({ todo_list_id => $todo_list_id })->order('position ASC, id DESC')->all;
+    my %assigned_out;
+    for my $t (@all_tasks) {
         my $assignment = mojotodo::Model::TaskAssignment->where({
-            task_id        => $task->id,
+            task_id        => $t->id,
             source_list_id => $todo_list_id,
         })->order('id DESC')->first;
+        $assigned_out{$t->id} = $assignment ? $assignment : undef;
+    }
+
+    my $total = 0;
+    my @rows;
+    for my $task (@tasks) {
+        my $assignment = $assigned_out{$task->id};
 
         my $is_assigned_out = $assignment ? 1 : 0;
         next if $hide_assigned_out && $is_assigned_out;
@@ -58,6 +75,14 @@ sub list_view {
         }
 
         push @rows, $row;
+        $total++;
+    }
+
+    if ($include_count) {
+        return {
+            rows  => \@rows,
+            total => $total,
+        };
     }
 
     return \@rows;

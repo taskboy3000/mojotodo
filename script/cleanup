@@ -1,0 +1,90 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use Getopt::Long qw(GetOptions);
+
+use lib 'lib';
+use mojotodo::DB;
+use mojotodo::Model::AuthChallenge;
+
+our $VERSION = '0.01';
+
+sub main {
+    my $dsn = $ENV{MOJOTODO_DSN} // $ENV{MOJOTODO_DBNAME};
+    if ($dsn && $dsn =~ /^dbi:(\w+):/i) {
+        $mojotodo::DB::gDSN = $dsn;
+    } else {
+        $mojotodo::DB::gDSN = "dbi:SQLite:dbname=$dsn" if $dsn;
+    }
+
+    my $help = 0;
+    my $dry_run = 0;
+    my $verbose = 0;
+    my $older_than_days = 7;
+
+    GetOptions(
+        'help|h'           => \$help,
+        'dry-run|n'        => \$dry_run,
+        'verbose|v'        => \$verbose,
+        'older-than-days=i' => \$older_than_days,
+    ) or usage();
+
+    usage() if $help;
+
+    my $db = mojotodo::DB->new;
+    my $dbh = $db->dbh;
+
+    my $cutoff_epoch = time() - ($older_than_days * 24 * 60 * 60);
+
+    my $used_count = 0;
+    if ($dry_run) {
+        my $sth = $dbh->prepare("SELECT COUNT(*) FROM auth_challenges WHERE used_epoch IS NOT NULL AND used_epoch > 0 AND used_epoch < ?");
+        $sth->execute($cutoff_epoch);
+        $used_count = $sth->fetchrow_arrayref->[0];
+        print "[DRY RUN] Would delete $used_count used auth challenges older than $older_than_days days\n";
+    } else {
+        my $sth = $dbh->prepare("DELETE FROM auth_challenges WHERE used_epoch IS NOT NULL AND used_epoch > 0 AND used_epoch < ?");
+        $sth->execute($cutoff_epoch);
+        $used_count = $sth->rows;
+        print "Deleted $used_count used auth challenges older than $older_than_days days\n";
+    }
+
+    my $expired_count = 0;
+    if ($dry_run) {
+        my $sth = $dbh->prepare("SELECT COUNT(*) FROM auth_challenges WHERE expires_epoch IS NOT NULL AND expires_epoch < ? AND (used_epoch IS NULL OR used_epoch = 0)");
+        $sth->execute(time());
+        $expired_count = $sth->fetchrow_arrayref->[0];
+        print "[DRY RUN] Would delete $expired_count expired auth challenges\n";
+    } else {
+        my $sth = $dbh->prepare("DELETE FROM auth_challenges WHERE expires_epoch IS NOT NULL AND expires_epoch < ? AND (used_epoch IS NULL OR used_epoch = 0)");
+        $sth->execute(time());
+        $expired_count = $sth->rows;
+        print "Deleted $expired_count expired auth challenges\n";
+    }
+
+    my $total = $used_count + $expired_count;
+    print "Total: $total challenges cleaned up\n" unless $dry_run;
+
+    return 0;
+}
+
+sub usage {
+    print <<"EOF";
+Usage: $0 [options]
+
+Options:
+    -h, --help              Show this help message
+    -n, --dry-run           Show what would be done without making changes
+    -v, --verbose           Show verbose output
+    --older-than-days=N     Delete challenges older than N days (default: 7)
+
+Environment variables:
+    MOJOTODO_DSN            Database DSN (e.g., dbi:SQLite:dbname=app.db)
+    MOJOTODO_DBNAME         Database name (used if DSN not set)
+
+EOF
+    exit(1);
+}
+
+exit main();

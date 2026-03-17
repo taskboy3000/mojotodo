@@ -1,0 +1,151 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use File::Spec;
+use Getopt::Long qw(GetOptions);
+
+use lib 'lib';
+use mojotodo::DB;
+use mojotodo::Model::User;
+use mojotodo::Model::TodoList;
+use mojotodo::Model::Task;
+use mojotodo::Model::ListShare;
+
+our $VERSION = '0.01';
+
+sub main {
+    my $dsn = $ENV{MOJOTODO_DSN} // $ENV{MOJOTODO_DBNAME};
+    if ($dsn && $dsn =~ /^dbi:(\w+):/i) {
+        $mojotodo::DB::gDSN = $dsn;
+    } else {
+        $mojotodo::DB::gDSN = "dbi:SQLite:dbname=$dsn" if $dsn;
+    }
+
+    my $help = 0;
+    my $clean = 0;
+
+    GetOptions(
+        'help|h'   => \$help,
+        'clean|c'  => \$clean,
+    ) or usage();
+
+    usage() if $help;
+
+    if ($clean) {
+        print "Cleaning existing data...\n";
+        mojotodo::DB->new->dbh->do('DELETE FROM task_assignments');
+        mojotodo::DB->new->dbh->do('DELETE FROM list_shares');
+        mojotodo::DB->new->dbh->do('DELETE FROM tasks');
+        mojotodo::DB->new->dbh->do('DELETE FROM todo_lists');
+        mojotodo::DB->new->dbh->do('DELETE FROM auth_challenges');
+        mojotodo::DB->new->dbh->do('DELETE FROM users');
+        print "Cleaned.\n\n";
+    }
+
+    print "Creating sample users...\n";
+    my $alice = mojotodo::Model::User->create({
+        email     => 'alice@example.com',
+        is_active => 1,
+    });
+    my $alice_id = $alice->id // 0 + 0;
+    print "Created user: alice (id=$alice_id)\n";
+
+    my $bob = mojotodo::Model::User->create({
+        email     => 'bob@example.com',
+        is_active => 1,
+    });
+    my $bob_id = $bob->id // 0 + 0;
+    print "Created user: bob (id=$bob_id)\n";
+
+    my $charlie = mojotodo::Model::User->create({
+        email     => 'charlie@example.com',
+        is_active => 1,
+    });
+    my $charlie_id = $charlie->id // 0 + 0;
+    print "Created user: charlie (id=$charlie_id)\n\n";
+
+    print "Creating sample lists for alice...\n";
+    my $personal = mojotodo::Model::TodoList->create({
+        owner_user_id => $alice_id,
+        title         => 'Personal Tasks',
+        archived      => 0,
+    });
+    my $personal_id = $personal->id // 0 + 0;
+    print "Created list: Personal Tasks (id=$personal_id)\n";
+
+    my $work = mojotodo::Model::TodoList->create({
+        owner_user_id => $alice_id,
+        title         => 'Work Projects',
+        archived      => 0,
+    });
+    my $work_id = $work->id // 0 + 0;
+    print "Created list: Work Projects (id=$work_id)\n\n";
+
+    print "Creating sample tasks...\n";
+    my @tasks = (
+        { list_id => $personal_id, title => 'Buy groceries', status => 'open', due_at => '2026-03-20' },
+        { list_id => $personal_id, title => 'Walk the dog', status => 'done', due_at => '2026-03-10' },
+        { list_id => $personal_id, title => 'Call mom', status => 'open', due_at => '2026-03-18' },
+        { list_id => $work_id, title => 'Review PR #42', status => 'in_progress', due_at => '2026-03-16' },
+        { list_id => $work_id, title => 'Write documentation', status => 'open', due_at => '2026-03-25' },
+        { list_id => $work_id, title => 'Deploy to staging', status => 'open', due_at => '2026-03-17' },
+    );
+
+    for my $task_info (@tasks) {
+        my $task = mojotodo::Model::Task->create({
+            todo_list_id       => $task_info->{list_id},
+            title              => $task_info->{title},
+            description        => '',
+            status             => $task_info->{status},
+            due_at             => $task_info->{due_at},
+            created_by_user_id => $alice_id,
+        });
+        my $task_id = $task->id // 0 + 0;
+        my $task_title = $task->title // '';
+        print "  Created task: $task_title (id=$task_id)\n";
+    }
+    print "\n";
+
+    print "Sharing Work Projects list with bob...\n";
+    my $share = mojotodo::Model::ListShare->create({
+        todo_list_id       => $work_id,
+        user_id            => $bob_id,
+        created_by_user_id => $alice_id,
+    });
+    my $share_id = $share->id // 0 + 0;
+    print "Shared with bob (share_id=$share_id)\n\n";
+
+    print "Seeding complete!\n";
+    print "-" x 40 . "\n";
+    print "Sample users:\n";
+    print "  alice\@example.com (owner)\n";
+    print "  bob\@example.com (collaborator on Work Projects)\n";
+    print "  charlie\@example.com\n";
+    print "\n";
+    print "Sample lists:\n";
+    print "  Personal Tasks (alice only)\n";
+    print "  Work Projects (alice + bob)\n";
+    print "\n";
+    print "To login, use the passwordless auth with these emails.\n";
+
+    return 0;
+}
+
+sub usage {
+    print <<"EOF";
+Usage: $0 [options]
+
+Options:
+    -h, --help   Show this help message
+    -c, --clean  Clean existing data before seeding
+
+Environment variables:
+    MOJOTODO_DSN      Database DSN (e.g., dbi:SQLite:dbname=app.db)
+    MOJOTODO_DBNAME   Database name (used if DSN not set)
+
+EOF
+    exit(1);
+}
+
+exit main();

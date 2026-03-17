@@ -90,6 +90,13 @@ perl -wc lib/Mod.pm
 perl -Ilib -wc Namespace/Model.pm
 ```
 
+### Development Server
+```bash
+./start_debug_server.sh
+```
+
+This starts the app on http://0.0.0.0:8080 with fake auth enabled.
+
 ## Code Style Guidelines
 
 ### General Principles

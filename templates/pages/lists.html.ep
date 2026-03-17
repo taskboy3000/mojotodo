@@ -1,0 +1,449 @@
+% layout 'main';
+% title 'My Lists - MojoTodo';
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">My Lists</h5>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#newListModal">
+                    <i class="bi bi-plus-lg"></i> New
+                </button>
+            </div>
+            <div class="list-group list-group-flush" id="lists-container">
+                <div class="text-center text-muted p-3">
+                    <i class="bi bi-hourglass-split"></i> Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div id="tasks-panel" style="display: none;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" id="current-list-title">Tasks</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" id="share-btn" data-bs-toggle="modal" data-bs-target="#shareModal">
+                            <i class="bi bi-people"></i> Share
+                        </button>
+                        <button class="btn btn-sm btn-danger" id="archive-btn">
+                            <i class="bi bi-archive"></i> Archive
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="p-3 border-bottom">
+                        <form id="new-task-form" class="d-flex gap-2">
+                            <input type="text" class="form-control" id="new-task-title" placeholder="Add a new task..." required>
+                            <input type="date" class="form-control" id="new-task-due" style="width: 150px;" title="Optional: set a due date">
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg"></i></button>
+                        </form>
+                        <p class="text-end text-muted pe-5">
+                            <small>Due date is optional</small>
+                        </p>
+                    </div>
+                    <div class="form-check ms-3 mt-2">
+                        <div class="row">
+                            <div class="offset-9 col-3">
+                                <input type="checkbox" class="form-check-input" id="hide-assigned">
+                                <label class="form-check-label" for="hide-assigned">Hide assigned to others</label>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div id="tasks-container" class="pe-2">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="no-list-selected" class="text-center text-muted py-5">
+            <i class="bi bi-collection display-1"></i>
+            <p class="mt-3">Select a list to view tasks</p>
+        </div>
+    </div>
+</div>
+
+<!-- New List Modal -->
+<div class="modal fade" id="newListModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">New List</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="new-list-form">
+                    <div class="mb-3">
+                        <label for="list-title" class="form-label">List Name</label>
+                        <input type="text" class="form-control" id="list-title" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Share List</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="share-form">
+                    <div class="mb-3">
+                        <label for="share-email" class="form-label">User Email</label>
+                        <input type="email" class="form-control" id="share-email" required>
+                    </div>
+                </form>
+                <h6>Collaborators</h6>
+                <ul class="list-group" id="collaborators-list">
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentListId = null;
+let lists = [];
+
+async function loadLists() {
+    try {
+        const result = await apiRequest('GET', '/lists');
+        lists = result.lists || [];
+        renderLists();
+    } catch (err) {
+        if (err.message === 'Unauthorized' || err.message.includes('401')) {
+            window.location.href = '/login';
+            return;
+        }
+        showError('Failed to load lists');
+    }
+}
+
+function renderLists() {
+    const container = document.getElementById('lists-container');
+    if (lists.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted p-3">No lists yet</div>';
+        return;
+    }
+    container.innerHTML = lists.map(list => `
+        <div class="list-group-item list-handle ${currentListId === list.id ? 'active' : ''}" 
+             data-id="${list.id}">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="#" class="text-decoration-none ${currentListId === list.id ? 'text-white' : ''}"
+                   onclick="selectList(${list.id}); return false;">
+                    ${list.title}
+                    ${list.archived ? '<span class="badge bg-secondary">Archived</span>' : ''}
+                </a>
+                <button class="btn btn-sm btn-${currentListId === list.id ? 'outline-light' : 'outline-secondary'} py-0 px-1" 
+                        onclick="event.stopPropagation(); showListEdit(${list.id}, '${escapeHtml(list.title).replace(/'/g, "\\'")}')">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function selectList(listId) {
+    currentListId = listId;
+    const list = lists.find(l => l.id === listId);
+    document.getElementById('current-list-title').textContent = list.title;
+    document.getElementById('no-list-selected').style.display = 'none';
+    document.getElementById('tasks-panel').style.display = 'block';
+    renderLists();
+    await loadTasks();
+}
+
+function showListEdit(listId, title) {
+    const listEl = document.querySelector(`[data-id="${listId}"]`);
+    if (!listEl) return;
+    const isActive = currentListId === listId;
+    listEl.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center w-100">
+            <input type="text" class="form-control form-control-sm me-2" id="edit-list-title-${listId}" value="${escapeHtml(title)}">
+            <button class="btn btn-sm btn-${isActive ? 'outline-light' : 'outline-secondary'} py-0 px-1" onclick="saveListEdit(${listId})">
+                <i class="bi bi-check"></i>
+            </button>
+            <button class="btn btn-sm btn-${isActive ? 'outline-light' : 'outline-secondary'} py-0 px-1" onclick="renderLists()">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>`;
+    document.getElementById(`edit-list-title-${listId}`).focus();
+}
+
+async function saveListEdit(listId) {
+    const title = document.getElementById(`edit-list-title-${listId}`).value.trim();
+    if (!title) {
+        showError('List title is required');
+        return;
+    }
+    try {
+        await apiRequest('PATCH', `/lists/${listId}`, { title: title });
+        await loadLists();
+    } catch (err) {
+        showError('Failed to rename list');
+    }
+}
+
+async function loadTasks() {
+    if (!currentListId) return;
+    const hideAssigned = document.getElementById('hide-assigned').checked;
+    try {
+        const url = `/lists/${currentListId}/tasks${hideAssigned ? '?hide_assigned_out=1' : ''}`;
+        const result = await apiRequest('GET', url);
+        renderTasks(result.tasks || []);
+    } catch (err) {
+        showError('Failed to load tasks');
+    }
+}
+
+function renderTasks(tasks) {
+    const container = document.getElementById('tasks-container');
+    
+    if (tasks.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted p-3">No tasks yet</div>';
+        return;
+    }
+    
+    const taskCards = tasks.map(task => {
+        const dueClass = getDueClass(task.due_at, task.status);
+        const dueHtml = task.due_at 
+            ? `<span class="badge ${dueClass} me-1">${formatDate(task.due_at)}</span>` 
+            : '';
+        const statusHtml = task.is_assigned_out 
+            ? `<span class="badge bg-info"><i class="bi bi-arrow-up-right"></i> ${task.assigned_to_email || 'Assigned'}</span>` 
+            : '';
+        return `
+        <div class="card mb-2 task-handle" data-task-id="${task.id}" id="task-card-${task.id}">
+            <div class="card-body p-2">
+                <div class="d-flex align-items-center gap-2" id="task-view-${task.id}">
+                    <input type="checkbox" class="form-check-input m-0" 
+                           ${task.status === 'done' ? 'checked' : ''} 
+                           onchange="toggleTask(${task.id}, this.checked)">
+                    <span class="flex-grow-1 ${task.status === 'done' ? 'task-done' : ''}">${escapeHtml(task.title)}</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="showTaskEdit(${task.id}, '${escapeHtml(task.title).replace(/'/g, "\\'")}', '${task.due_at || ''}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${task.id})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                <div class="mt-1">
+                    ${dueHtml}${statusHtml}
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+    
+    container.innerHTML = taskCards;
+}
+
+function getDueClass(dueAt, status) {
+    if (!dueAt || status === 'done') return '';
+    const due = new Date(dueAt);
+    const now = new Date();
+    const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return 'bg-danger';
+    if (diffDays <= 2) return 'bg-warning';
+    return 'bg-success';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString();
+}
+
+async function toggleTask(taskId, completed) {
+    try {
+        await apiRequest('PATCH', `/lists/${currentListId}/tasks/${taskId}`, {
+            status: completed ? 'done' : 'open',
+            completed_at: completed ? new Date().toISOString() : null
+        });
+        await loadTasks();
+    } catch (err) {
+        showError('Failed to update task');
+    }
+}
+
+async function deleteTask(taskId) {
+    if (!confirm('Delete this task?')) return;
+    try {
+        await apiRequest('DELETE', `/lists/${currentListId}/tasks/${taskId}`);
+        await loadTasks();
+    } catch (err) {
+        showError('Failed to delete task');
+    }
+}
+
+function showTaskEdit(taskId, title, dueAt) {
+    const card = document.getElementById(`task-card-${taskId}`);
+    const dueValue = dueAt ? dueAt.split('T')[0] : '';
+    card.innerHTML = `
+        <div class="card mb-2">
+            <div class="card-body p-2">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <input type="text" class="form-control" id="edit-task-title-${taskId}" value="${escapeHtml(title)}" placeholder="Task title">
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <label class="text-muted small mb-0">Due:</label>
+                    <input type="date" class="form-control form-control-sm" id="edit-task-due-${taskId}" value="${dueValue}" style="width: 150px;">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary" onclick="saveTaskEdit(${taskId})">Save</button>
+                    <button class="btn btn-sm btn-secondary" onclick="loadTasks()">Cancel</button>
+                </div>
+            </div>
+        </div>`;
+}
+
+async function saveTaskEdit(taskId) {
+    const title = document.getElementById(`edit-task-title-${taskId}`).value.trim();
+    const dueAt = document.getElementById(`edit-task-due-${taskId}`).value;
+    if (!title) {
+        showError('Task title is required');
+        return;
+    }
+    try {
+        await apiRequest('PATCH', `/lists/${currentListId}/tasks/${taskId}`, {
+            title: title,
+            due_at: dueAt || null
+        });
+        await loadTasks();
+    } catch (err) {
+        showError('Failed to update task');
+    }
+}
+
+document.getElementById('new-list-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('list-title').value;
+    try {
+        const result = await apiRequest('POST', '/lists', { title });
+        bootstrap.Modal.getInstance(document.getElementById('newListModal')).hide();
+        document.getElementById('list-title').value = '';
+        await loadLists();
+        selectList(result.list.id);
+    } catch (err) {
+        showError('Failed to create list');
+    }
+});
+
+document.getElementById('new-task-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('new-task-title').value;
+    const dueAt = document.getElementById('new-task-due').value || null;
+    try {
+        await apiRequest('POST', `/lists/${currentListId}/tasks`, { title, due_at: dueAt });
+        document.getElementById('new-task-title').value = '';
+        document.getElementById('new-task-due').value = '';
+        await loadTasks();
+    } catch (err) {
+        showError('Failed to create task');
+    }
+});
+
+document.getElementById('hide-assigned').addEventListener('change', loadTasks);
+
+document.getElementById('share-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('share-email').value;
+    try {
+        await apiRequest('POST', `/lists/${currentListId}/share`, { email });
+        document.getElementById('share-email').value = '';
+        await loadCollaborators();
+        showSuccess('List shared!');
+    } catch (err) {
+        showError(err.message);
+    }
+});
+
+async function loadCollaborators() {
+    try {
+        const result = await apiRequest('GET', `/lists/${currentListId}/share`);
+        const container = document.getElementById('collaborators-list');
+        if (!result.collaborators || result.collaborators.length === 0) {
+            container.innerHTML = '<li class="list-group-item text-muted">No collaborators</li>';
+            return;
+        }
+        container.innerHTML = result.collaborators.map(c => `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                ${escapeHtml(c.email)}
+                <button class="btn btn-sm btn-outline-danger" onclick="removeCollaborator(${c.id})">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </li>
+        `).join('');
+    } catch (err) {
+        showError('Failed to load collaborators');
+    }
+}
+
+async function removeCollaborator(shareId) {
+    if (!confirm('Remove collaborator?')) return;
+    try {
+        await apiRequest('DELETE', `/lists/${currentListId}/share/${shareId}`);
+        await loadCollaborators();
+    } catch (err) {
+        showError('Failed to remove collaborator');
+    }
+}
+
+document.getElementById('share-btn').addEventListener('click', loadCollaborators);
+
+// Load lists on page load
+window.addEventListener('DOMContentLoaded', () => {
+    loadLists();
+    
+    // Initialize SortableJS for lists
+    const listsContainer = document.getElementById('lists-container');
+    if (listsContainer) {
+        new Sortable(listsContainer, {
+            animation: 150,
+            handle: '.list-handle',
+            onEnd: async (evt) => {
+                const listIds = Array.from(listsContainer.children).map(el => parseInt(el.dataset.id)).filter(id => !isNaN(id));
+                try {
+                    await apiRequest('POST', '/lists/reorder', { list_ids: listIds });
+                } catch (err) {
+                    showError('Failed to save list order');
+                    loadLists();
+                }
+            }
+        });
+    }
+    
+    // Initialize SortableJS for tasks
+    const tasksContainer = document.getElementById('tasks-container');
+    if (tasksContainer) {
+        new Sortable(tasksContainer, {
+            animation: 150,
+            handle: '.task-handle',
+            onEnd: async (evt) => {
+                if (!currentListId) return;
+                const taskIds = Array.from(tasksContainer.querySelectorAll('.card')).map(el => parseInt(el.dataset.taskId)).filter(id => !isNaN(id));
+                try {
+                    await apiRequest('POST', `/lists/${currentListId}/tasks/reorder`, { task_ids: taskIds });
+                } catch (err) {
+                    showError('Failed to save task order');
+                    loadTasks();
+                }
+            }
+        });
+    }
+});
+</script>

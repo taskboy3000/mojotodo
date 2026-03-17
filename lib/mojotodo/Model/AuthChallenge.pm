@@ -10,7 +10,9 @@ tablename 'auth_challenges';
 
 column id            => ( is => 'rw', isa => 'Int', primary_key => 1 );
 column user_id       => ( is => 'rw', isa => 'Int' );
-column email         => ( is => 'rw', isa => 'Str', required => 1, length => 254 );
+column email         => ( is => 'rw', isa => 'Str', length => 254 );
+column phone         => ( is => 'rw', isa => 'Str', length => 20 );
+column code_type     => ( is => 'rw', isa => 'Str', default => 'email', length => 10 );
 column code_hash     => ( is => 'rw', isa => 'Str', required => 1, length => 64 );
 column code_salt     => ( is => 'rw', isa => 'Str', required => 1, length => 32 );
 column created_epoch => ( is => 'rw', isa => 'Int', required => 1 );
@@ -26,6 +28,7 @@ belongs_to user => (
     foreign_key => 'user_id',
 );
 
-validates email => ( format => qr/^[^\s\@]+\@[^\s\@]+\.[^\s\@]+$/ );
+validates email => ( format => qr/^[^\s\@]+\@[^\s\@]+\.[^\s\@]+$/, required => 0 );
+validates code_type => ( format => qr/^(email|sms)$/ );
 
 1;

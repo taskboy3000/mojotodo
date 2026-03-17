@@ -17,8 +17,10 @@ $ENV{MOJOTODO_CODE_PEPPER} = 'test-pepper';
 my $t = Test::Mojo->new('mojotodo');
 
 $t->get_ok('/')
-    ->status_is(200)
-    ->json_is('/app', 'MojoTodo')
-    ->json_is('/status', 'ok');
+    ->status_is(302)
+    ->header_like('Location', qr{/login});
+
+$t->get_ok('/login')
+    ->status_is(200);
 
 done_testing;
